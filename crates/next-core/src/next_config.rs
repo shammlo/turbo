@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, default::Default};
 
 use anyhow::Result;
 use indexmap::IndexMap;
@@ -35,30 +35,140 @@ use turbopack_node::{
 
 use crate::embed_js::next_asset;
 
-#[turbo_tasks::value(serialization = "custom")]
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[turbo_tasks::value(serialization = "custom", eq = "manual")]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NextConfig {
-    pub config_file: Option<String>,
+    pub cross_origin: Option<String>,
+    pub config_file: String,
     pub config_file_name: String,
-    pub typescript: Option<TypeScriptConfig>,
+
     pub react_strict_mode: Option<bool>,
-    pub experimental: Option<ExperimentalConfig>,
-    pub env: Option<HashMap<String, String>>,
-    pub compiler: Option<CompilerConfig>,
+    pub experimental: ExperimentalConfig,
     pub images: ImageConfig,
     pub transpile_packages: Option<Vec<String>>,
+
+    // unsupported
+    amp: AmpConfig,
+    analytics_id: String,
+    asset_prefix: String,
+    base_path: String,
+    clean_dist_dir: bool,
+    compiler: Option<CompilerConfig>,
+    compress: bool,
+    dev_indicators: DevIndicatorsConfig,
+    dist_dir: String,
+    env: HashMap<String, String>,
+    eslint: EslintConfig,
+    exclude_default_moment_locales: bool,
+    // this can be a function in js land
+    export_path_map: Option<serde_json::Value>,
+    // this is a function in js land
+    generate_build_id: Option<serde_json::Value>,
+    generate_etags: bool,
+    // this is a function in js land
+    headers: Option<serde_json::Value>,
+    http_agent_options: HttpAgentConfig,
+    i18n: Option<I18NConfig>,
+    on_demand_entries: OnDemandEntriesConfig,
+    optimize_fonts: bool,
+    output: Option<OutputType>,
+    output_file_tracing: bool,
+    page_extensions: Vec<String>,
+    powered_by_header: bool,
+    production_browser_source_maps: bool,
+    public_runtime_config: HashMap<String, serde_json::Value>,
+    // this is a function in js land
+    redirects: Option<serde_json::Value>,
+    // this is a function in js land
+    rewrites: Option<serde_json::Value>,
+    sass_options: HashMap<String, serde_json::Value>,
+    server_runtime_config: HashMap<String, serde_json::Value>,
+    static_page_generation_timeout: f64,
+    swc_minify: bool,
+    target: String,
+    trailing_slash: bool,
+    typescript: TypeScriptConfig,
+    use_file_system_public_routes: bool,
+    webpack: Option<serde_json::Value>,
 }
 
-#[derive(Clone, Debug, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize, TraceRawVcs)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TraceRawVcs)]
+#[serde(rename_all = "camelCase")]
+struct AmpConfig {
+    canonical_base: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TraceRawVcs)]
+#[serde(rename_all = "camelCase")]
+struct EslintConfig {
+    dirs: Option<Vec<String>>,
+    ignore_during_builds: Option<bool>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TraceRawVcs)]
+#[serde(rename_all = "kebab-case")]
+enum BuildActivityPositions {
+    #[default]
+    BottomRight,
+    BottomLeft,
+    TopRight,
+    TopLeft,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TraceRawVcs)]
+#[serde(rename_all = "camelCase")]
+struct DevIndicatorsConfig {
+    build_activity: bool,
+    build_activity_position: BuildActivityPositions,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TraceRawVcs)]
+#[serde(rename_all = "camelCase")]
+struct OnDemandEntriesConfig {
+    max_inactive_age: f64,
+    pages_buffer_length: f64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TraceRawVcs)]
+#[serde(rename_all = "camelCase")]
+struct HttpAgentConfig {
+    keep_alive: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TraceRawVcs)]
+#[serde(rename_all = "camelCase")]
+struct DomainLocale {
+    default_locale: String,
+    domain: String,
+    http: Option<bool>,
+    locales: Option<Vec<String>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TraceRawVcs)]
+#[serde(rename_all = "camelCase")]
+struct I18NConfig {
+    default_locale: String,
+    domains: Option<Vec<DomainLocale>>,
+    locale_detection: Option<bool>,
+    locales: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TraceRawVcs)]
+#[serde(rename_all = "kebab-case")]
+enum OutputType {
+    Standalone,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TraceRawVcs)]
 #[serde(rename_all = "camelCase")]
 pub struct TypeScriptConfig {
     pub ignore_build_errors: Option<bool>,
     pub ts_config_path: Option<String>,
 }
 
-#[turbo_tasks::value]
-#[derive(Clone, Debug, Ord, PartialOrd)]
+#[turbo_tasks::value(eq = "manual")]
+#[derive(Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageConfig {
     pub device_sizes: Vec<u16>,
@@ -97,8 +207,8 @@ impl Default for ImageConfig {
     }
 }
 
-#[derive(Clone, Debug, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize, TraceRawVcs)]
-#[serde(rename_all = "lowercase")]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TraceRawVcs)]
+#[serde(rename_all = "kebab-case")]
 pub enum ImageLoader {
     Default,
     Imgix,
@@ -107,17 +217,15 @@ pub enum ImageLoader {
     Custom,
 }
 
-#[derive(Clone, Debug, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize, TraceRawVcs)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TraceRawVcs)]
 pub enum ImageFormat {
-    #[serde(rename(deserialize = "image/webp"))]
+    #[serde(rename = "image/webp")]
     Webp,
-    #[serde(rename(deserialize = "image/avif"))]
+    #[serde(rename = "image/avif")]
     Avif,
 }
 
-#[derive(
-    Clone, Debug, Default, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize, TraceRawVcs,
-)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TraceRawVcs)]
 #[serde(rename_all = "camelCase")]
 pub struct RemotePattern {
     pub protocol: Option<RemotePatternProtocal>,
@@ -126,23 +234,83 @@ pub struct RemotePattern {
     pub pathname: Option<String>,
 }
 
-#[derive(Clone, Debug, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize, TraceRawVcs)]
-#[serde(rename_all = "lowercase")]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TraceRawVcs)]
+#[serde(rename_all = "kebab-case")]
 pub enum RemotePatternProtocal {
     Http,
     Https,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TraceRawVcs)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TraceRawVcs)]
 #[serde(rename_all = "camelCase")]
 pub struct ExperimentalConfig {
-    pub server_components_external_packages: Option<Vec<String>>,
     pub app_dir: Option<bool>,
-    pub turbopack_webpack_loaders: Option<IndexMap<String, Vec<String>>>,
     pub resolve_alias: Option<IndexMap<String, Vec<String>>>,
+    pub server_components_external_packages: Option<Vec<String>>,
+    pub turbopack_webpack_loaders: Option<IndexMap<String, Vec<String>>>,
+
+    // unsupported
+    adjust_font_fallbacks: Option<bool>,
+    adjust_font_fallbacks_with_size_adjust: Option<bool>,
+    allow_middleware_response_body: Option<bool>,
+    amp: Option<serde_json::Value>,
+    cpus: Option<f64>,
+    cra_compat: Option<bool>,
+    disable_optimized_loading: Option<bool>,
+    disable_postcss_preset_env: Option<bool>,
+    enable_undici: Option<bool>,
+    esm_externals: Option<serde_json::Value>,
+    external_dir: Option<bool>,
+    fallback_node_polyfills: Option<bool>,
+    fetch_cache: Option<bool>,
+    font_loaders: Option<serde_json::Value>,
+    force_swc_transforms: Option<bool>,
+    fully_specified: Option<bool>,
+    gzip_size: Option<bool>,
+    incremental_cache_handler_path: Option<String>,
+    isr_flush_to_disk: Option<bool>,
+    isr_memory_cache_size: Option<f64>,
+    large_page_data_bytes: Option<f64>,
+    legacy_browsers: Option<bool>,
+    manual_client_base_path: Option<bool>,
+    mdx_rs: Option<serde_json::Value>,
+    middleware_prefetch: Option<MiddlewarePrefetchType>,
+    modularize_imports: Option<serde_json::Value>,
+    new_next_link_behavior: Option<bool>,
+    next_script_workers: Option<bool>,
+    optimistic_client_cache: Option<bool>,
+    optimize_css: Option<serde_json::Value>,
+    output_file_tracing_ignores: Option<Vec<String>>,
+    output_file_tracing_root: Option<String>,
+    page_env: Option<bool>,
+    profiling: Option<bool>,
+    proxy_timeout: Option<f64>,
+    runtime: Option<serde_json::Value>,
+    scroll_restoration: Option<bool>,
+    shared_pool: Option<bool>,
+    skip_middleware_url_normalize: Option<bool>,
+    skip_trailing_slash_redirect: Option<bool>,
+    sri: Option<serde_json::Value>,
+    swc_file_reading: Option<bool>,
+    swc_minify: Option<bool>,
+    swc_minify_debug_options: Option<serde_json::Value>,
+    swc_plugins: Option<serde_json::Value>,
+    swc_trace_profiling: Option<bool>,
+    transpile_packages: Option<Vec<String>>,
+    turbotrace: Option<serde_json::Value>,
+    url_imports: Option<serde_json::Value>,
+    web_vitals_attribution: Option<serde_json::Value>,
+    worker_threads: Option<bool>,
 }
 
-#[derive(Clone, Debug, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize, TraceRawVcs)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TraceRawVcs)]
+#[serde(rename_all = "kebab-case")]
+enum MiddlewarePrefetchType {
+    Strict,
+    Flexible,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TraceRawVcs)]
 #[serde(rename_all = "camelCase")]
 pub struct CompilerConfig {
     pub react_remove_properties: Option<bool>,
@@ -150,14 +318,14 @@ pub struct CompilerConfig {
     pub remove_console: Option<RemoveConsoleConfig>,
 }
 
-#[derive(Clone, Debug, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize, TraceRawVcs)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TraceRawVcs)]
 #[serde(untagged, rename_all = "camelCase")]
 pub enum ReactRemoveProperties {
     Boolean(bool),
     Config { properties: Option<Vec<String>> },
 }
 
-#[derive(Clone, Debug, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize, TraceRawVcs)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TraceRawVcs)]
 #[serde(rename_all = "camelCase")]
 pub struct RelayConfig {
     pub src: String,
@@ -165,7 +333,7 @@ pub struct RelayConfig {
     pub language: Option<RelayLanguage>,
 }
 
-#[derive(Clone, Debug, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize, TraceRawVcs)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TraceRawVcs)]
 #[serde(untagged, rename_all = "lowercase")]
 pub enum RelayLanguage {
     TypeScript,
@@ -173,7 +341,7 @@ pub enum RelayLanguage {
     JavaScript,
 }
 
-#[derive(Clone, Debug, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize, TraceRawVcs)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TraceRawVcs)]
 #[serde(untagged)]
 pub enum RemoveConsoleConfig {
     Boolean(bool),
@@ -187,8 +355,8 @@ impl NextConfigVc {
         Ok(StringsVc::cell(
             self.await?
                 .experimental
+                .server_components_external_packages
                 .as_ref()
-                .and_then(|e| e.server_components_external_packages.as_ref())
                 .cloned()
                 .unwrap_or_default(),
         ))
@@ -199,8 +367,8 @@ impl NextConfigVc {
         Ok(BoolVc::cell(
             self.await?
                 .experimental
+                .app_dir
                 .as_ref()
-                .and_then(|e| e.app_dir.as_ref())
                 .cloned()
                 .unwrap_or_default(),
         ))
@@ -220,8 +388,7 @@ impl NextConfigVc {
 
     #[turbo_tasks::function]
     pub async fn webpack_loaders_options(self) -> Result<WebpackLoadersOptionsVc> {
-        let this = self.await?;
-        let Some(turbopack_webpack_loaders) = this.experimental.as_ref().and_then(|experimental| experimental.turbopack_webpack_loaders.as_ref()) else {
+        let Some(ref turbopack_webpack_loaders) = self.await?.experimental.turbopack_webpack_loaders else {
             return Ok(WebpackLoadersOptionsVc::cell(WebpackLoadersOptions::default()));
         };
         let mut extension_to_loaders = IndexMap::new();
@@ -237,8 +404,7 @@ impl NextConfigVc {
 
     #[turbo_tasks::function]
     pub async fn resolve_alias_options(self) -> Result<ResolveAliasOptionsVc> {
-        let this = self.await?;
-        let Some(resolve_alias) = this.experimental.as_ref().and_then(|experimental| experimental.resolve_alias.as_ref()) else {
+        let Some(ref resolve_alias) = self.await?.experimental.resolve_alias else {
             return Ok(ResolveAliasOptionsVc::cell(ResolveAliasOptions::default()));
         };
         let mut alias_map = IndexMap::new();
@@ -313,7 +479,9 @@ pub async fn load_next_config(execution_context: ExecutionContextVc) -> Result<N
     match &*config_value {
         JavaScriptValue::Value(val) => {
             let next_config: NextConfig = serde_json::from_reader(val.read())?;
-            Ok(next_config.cell())
+            let next_config = next_config.cell();
+
+            Ok(next_config)
         }
         JavaScriptValue::Error => Ok(NextConfig::default().cell()),
         JavaScriptValue::Stream(_) => {
