@@ -1,0 +1,22 @@
+import { transformer } from "../src/transforms/{{ name }}";
+import { testTransform } from "./test-utils";
+
+describe("{{ name }}", () => {
+  test("basic", () => {
+    // load the fixture for the test
+    const { root, read, cleanup } = testTransform({
+      fixture: "{{ name }}/specific-fixture",
+    });
+
+    // run the transformer
+    const result = transformer({
+      root,
+      options: { force: false, dry: false, print: false },
+    });
+
+    // result should be correct
+    expect(result.toObject()).toMatchInlineSnapshot();
+
+    cleanup();
+  });
+});

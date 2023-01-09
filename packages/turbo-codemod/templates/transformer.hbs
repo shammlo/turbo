@@ -1,0 +1,30 @@
+import { TransformerArgs } from "../types";
+import TransformerResult from "../utils/transformerResult";
+import getTransformerHelpers from "../utils/getTransformerHelpers";
+
+// transformer details
+const TRANSFORMER = "{{ name }}";
+const DESCRIPTION = "{{ description }}";
+const INTRODUCED_IN = "{{ introducedIn }}";
+
+export function transformer({ root, options }: TransformerArgs): TransformerResult {
+  const { log, result } = getTransformerHelpers({
+    transformer: TRANSFORMER,
+    options,
+  });
+
+  /*
+    add transform logic here!
+  */
+
+  return result;
+}
+
+const transformerMeta = {
+  name: `${TRANSFORMER}: ${DESCRIPTION}`,
+  value: TRANSFORMER,
+  introducedIn: INTRODUCED_IN,
+  transformer,
+};
+
+export default transformerMeta;
